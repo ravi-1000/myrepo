@@ -1,0 +1,254 @@
+import sys
+import logging
+import pymysql
+import json
+
+# rds settings
+rds_host  = "mysqlforlambda.cdipnbm2csku.us-west-2.rds.amazonaws.com"
+user_name = "admin"
+password = "password"
+db_name = "ExampleDB"
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# create the database connection outside of the handler to allow connections to be
+# re-used by subsequent function invocations.
+try:
+    conn = pymysql.connect(host=rds_host, user=user_name, passwd=password, db=db_name, connect_timeout=5)
+except pymysql.MySQLError as e:
+    logger.error("ERROR: Unexpected error: Could not connect to MySQL instance.")
+    logger.error(e)
+    sys.exit()
+
+logger.info("SUCCESS: Connection to RDS MySQL instance succeeded")
+
+def lambda_handler(event, context):
+    """
+    This function creates a new RDS database table and writes records to it
+    """
+    message = event['Records'][0]['body']
+    data = json.loads(message)
+    CustID = data['CustID']
+    Name = data['Name']
+
+    item_count = 0
+    sql_string = f"insert into Customer (CustID, Name) values({CustID}, '{Name}')"
+
+    with conn.cursor() as cur:
+        cur.execute("create table if not exists Customer ( CustID  int NOT NULL, Name varchar(255) NOT NULL, PRIMARY KEY (CustID))")
+        cur.execute(sql_string)
+        conn.commit()
+        cur.execute("select * from Customer")
+        logger.info("The following items have been added to the database:")
+        for row in cur:
+            item_count += 1
+            logger.info(row)
+    conn.commit()
+
+    return "Added %d items to RDS MySQL table" %(item_count)
+
+
+
+
+
+Certainly! Here's an example of a Dockerfile and a Serverless Framework configuration file (serverless.yml) for deploying an AWS Lambda function that interacts with an AWS RDS instance.
+
+Dockerfile:
+
+Dockerfile
+Copy code
+FROM public.ecr.aws/lambda/python:3.8
+
+COPY app.py requirements.txt ./
+RUN python3.8 -m pip install -r requirements.txt -t .
+
+CMD ["app.handler"]
+In the Dockerfile, we're using the public.ecr.aws/lambda/python base image, copying the app.py and requirements.txt files, installing the dependencies, and setting the entrypoint to the Lambda handler (app.handler).
+
+serverless.yml:
+
+yaml
+Copy code
+service: my-lambda-service
+provider:
+  name: aws
+  runtime: python3.8
+  region: us-east-1
+
+functions:
+  my-lambda-function:
+    handler: app.handler
+    environment:
+      RDS_HOST: <RDS endpoint>
+      RDS_USER: <RDS username>
+      RDS_PASSWORD: <RDS password>
+      RDS_DATABASE: <RDS database name>
+    vpc:
+      securityGroupIds:
+        - <security-group-id>
+      subnetIds:
+        - <subnet-id>
+In the serverless.yml file, replace the <RDS endpoint>, <RDS username>, <RDS password>, and <RDS database name> placeholders with the actual values corresponding to your RDS configuration. Also, provide the appropriate <security-group-id> and <subnet-id> for your Lambda function to access the RDS instance within the VPC.
+
+To deploy the Lambda function with the Serverless Framework, follow these steps:
+
+Ensure you have the Serverless Framework installed. If not, you can install it by running npm install -g serverless.
+
+Place the Dockerfile, app.py, requirements.txt, and serverless.yml files in the same directory.
+
+Open a terminal and navigate to the directory containing these files.
+
+Build and deploy the Lambda function using the Serverless Framework by running sls deploy. This command will package your function code, create a CloudFormation stack, and deploy the Lambda function to AWS.
+
+Once deployed, the Lambda function will have access to the environment variables defined in the serverless.yml file, which correspond to the RDS configuration. You can access these environment variables in your app.py code using os.environ.
+
+Make sure to configure your AWS credentials using the AWS CLI or environment variables before running the sls deploy command.
+
+Note: Ensure that your AWS credentials have the necessary permissions to create and deploy Lambda functions, VPC resources, and access RDS instances.
+
+
+
+
+
+To set up a GitHub workflow configuration for Pull Requests, you can create a YAML file in your repository's .github/workflows directory. This file will define the workflow steps that will run whenever a Pull Request is opened or updated. Here's an example of a GitHub workflow configuration for Pull Requests:
+
+yaml
+Copy code
+name: Pull Request Workflow
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest
+
+      - name: Lint code
+        run: pylint app.py
+In this example, the workflow is triggered whenever a Pull Request is opened or updated (types: [opened, synchronize]). The workflow consists of a single job named "Build and Test" that runs on an Ubuntu-based runner (runs-on: ubuntu-latest).
+
+The steps of the job are as follows:
+
+Checkout code: Fetches the code for the Pull Request.
+
+Set up Python: Installs the specified Python version.
+
+Install dependencies: Upgrades pip and installs the project dependencies from the requirements.txt file.
+
+Run tests: Executes the test suite using pytest.
+
+Lint code: Runs pylint to perform code linting on the app.py file.
+
+You can modify and expand this example to include additional steps and actions according to your specific requirements. For example, you can add steps to deploy the application, generate code coverage reports, or perform other quality checks.
+
+Save the workflow configuration file with a .yml extension in the .github/workflows directory of your repository. The workflow will automatically be triggered whenever a Pull Request is opened or updated.
+
+Note: Make sure to customize the steps and actions to match your project's setup, programming language, and testing/linting tools.  
+
+
+
+
+
+
+
+
+Github workflow configurations for release for a python program
+ChatGPT
+To set up a GitHub workflow configuration for releasing a Python program, you can create a YAML file in your repository's .github/workflows directory. This file will define the workflow steps that will run when a new release is created. Here's an example of a GitHub workflow configuration for releasing a Python program:
+
+yaml
+Copy code
+name: Release Workflow
+
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build
+        run: python setup.py build
+
+      - name: Test
+        run: python setup.py test
+
+      - name: Package
+        run: python setup.py sdist bdist_wheel
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Release ${{ github.ref }} is created
+          draft: false
+          prerelease: false
+
+      - name: Upload artifact
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/*
+          asset_name: your-python-program-${{ github.ref }}.tar.gz
+          asset_content_type: application/gzip
+In this example, the workflow is triggered whenever a new release is created (types: [created]). The workflow consists of a single job named "Build and Release" that runs on an Ubuntu-based runner (runs-on: ubuntu-latest).
+
+The steps of the job are as follows:
+
+Checkout code: Fetches the code for the release.
+
+Set up Python: Installs the specified Python version.
+
+Install dependencies: Installs the project dependencies from the requirements.txt file.
+
+Build: Executes the build process (e.g., compiling, packaging).
+
+Test: Runs the test suite for the Python program.
+
+Package: Packages the Python program into a distribution file (e.g., tar.gz, wheel).
+
+Create release: Uses the actions/create-release action to create a GitHub release with the specified tag name, release name, and body.
+
+Upload artifact: Uses the actions/upload-release-asset action to upload the built artifact (e.g., distribution file) to the release.
+
+Make sure to customize the steps and actions to match your Python program's setup and release requirements. For example, you may need to modify the build and test commands, adjust the artifact path and naming convention, or add additional steps for documentation generation or code signing.
+
+Save the workflow configuration file with a .yml extension in the .github/workflows directory of your repository. The workflow will automatically be triggered whenever a new release is created.  
